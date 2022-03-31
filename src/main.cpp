@@ -6,8 +6,9 @@ void setup() {
 
 void loop() {
   Serial.println("Hello World, from thomas. I'm going my way");
-  Serial.println("Hello World, from thomas");
+  Serial.println("Jag provar en bransh");
   Serial.println("Detta är en ändring");
+
   //Kommenterar lite bara
   delay(1000);
 }
