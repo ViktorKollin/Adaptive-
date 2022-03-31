@@ -7,5 +7,6 @@ void setup() {
 void loop() {
   Serial.println("Hello World, from thomas");
   Serial.println("Detta är en ändring");
+  //Kommenterar lite bara
   delay(1000);
 }
