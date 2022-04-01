@@ -76,11 +76,26 @@ void printBatteryStats()
 void setup()
 {
   Serial.begin(115200);
+   pinMode(13, OUTPUT);
+  digitalWrite(13,HIGH);
+  delay(5000);
   setupBQ27441();
-}
+ 
 
+
+
+}
+void turnOffCharge(){
+  digitalWrite(13,!digitalRead(13));
+
+}
 void loop() 
 {
+  
+  for(int i=0; i<10; i++){
   printBatteryStats();
   delay(1000);
+  }
+  turnOffCharge();
 }
+
