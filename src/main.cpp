@@ -3,8 +3,6 @@
 #include <WiFi.h>
 #include "time.h"
 
-
-
 #define SDA_2 33
 #define SCL_2 32
 
@@ -17,7 +15,6 @@ const char * host = "172.20.10.2";
 const char* ntpServer = "pool.ntp.org";
 const long  gmtOffset_sec = 0;
 const int   daylightOffset_sec = 3600;
-
 
 // Set BATTERY_CAPACITY to the design capacity of your battery.
 const unsigned int BATTERY_CAPACITY = 8000; // e.g. 850mAh battery
@@ -33,7 +30,6 @@ void configureWiFi(){
     delay(500);
     Serial.println("...");
   }
-
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
  
 }
@@ -80,7 +76,7 @@ void printBatteryStats()
   //unsigned int soc = lipo_1.soc();  // Read state-of-charge (%)
    soc2 = lipo_2.soc();  // Read state-of-charge (%)
    int current = lipo_2.current(AVG); // Read average current (mA)
-   unsigned int fullCapacity = lipo_2.capacity(FULL); // Read full capacity (mAh)
+  unsigned int fullCapacity = lipo_2.capacity(FULL); // Read full capacity (mAh)
   unsigned int capacity = lipo_2.capacity(REMAIN); // Read remaining capacity (mAh)
   /*
   unsigned int volts = lipo.voltage(); // Read battery voltage (mV)
@@ -119,14 +115,13 @@ void setup()
   //setupBQ27441();
   configureWiFi();
 
-
-
 }
 void turnOffCharge(){
   digitalWrite(13,!digitalRead(13));
 
 }
 void printLocalTime(){
+
   struct tm timeinfo;
   if(!getLocalTime(&timeinfo)){
     Serial.println("Failed to obtain time");
