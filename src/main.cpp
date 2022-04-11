@@ -1,7 +1,9 @@
-
 #include <SparkFunBQ27441.h>
 #include <Wire.h>
 #include <WiFi.h>
+#include "time.h"
+
+
 
 #define SDA_2 33
 #define SCL_2 32
@@ -12,6 +14,10 @@ const char* password =  "Helena90";
 const uint16_t port = 5013;
 const char * host = "172.20.10.2";
 
+const char* ntpServer = "pool.ntp.org";
+const long  gmtOffset_sec = 0;
+const int   daylightOffset_sec = 3600;
+
 
 // Set BATTERY_CAPACITY to the design capacity of your battery.
 const unsigned int BATTERY_CAPACITY = 8000; // e.g. 850mAh battery
@@ -21,6 +27,16 @@ BQ27441 lipo_2;
 unsigned int soc2;
 
 
+void configureWiFi(){
+    WiFi.begin(ssid, password);
+    while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.println("...");
+  }
+
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+ 
+}
 
 void setupBQ27441(void)
 {
@@ -100,14 +116,8 @@ void setup()
    pinMode(13, OUTPUT);
   digitalWrite(13,HIGH);
   delay(5000);
-  setupBQ27441();
-
-   WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.println("...");
-  }
- 
+  //setupBQ27441();
+  configureWiFi();
 
 
 
@@ -116,8 +126,20 @@ void turnOffCharge(){
   digitalWrite(13,!digitalRead(13));
 
 }
+void printLocalTime(){
+  struct tm timeinfo;
+  if(!getLocalTime(&timeinfo)){
+    Serial.println("Failed to obtain time");
+    return;
+  }
+  Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+}
+
 void loop() 
 {
+
+  printLocalTime();
+  /*
    WiFiClient client;
      
     if (!client.connect(host, port)) {  
@@ -130,10 +152,7 @@ void loop()
 
     String line = client.readString();
 
-
-    if(soc2 == 99 ){
-        digitalWrite(13,LOW);
-    }
+*/
 
   /*
     if (line.equals("Toggle"))
@@ -142,8 +161,8 @@ void loop()
    }
    */
 
-   printBatteryStats();
+   //printBatteryStats();
 
-   delay(10000);
+   delay(1000);
 }
 
