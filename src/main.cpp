@@ -2,12 +2,29 @@
 #include <Wire.h>
 #include <WiFi.h>
 #include "time.h"
+#include "esp_timer.h"
+#include <esp_task_wdt.h>
+#include "Arduino.h"
+#include "LuxSensor.h"
 
 #define SDA_2 33
 #define SCL_2 32
+#define LED_PIN 25
+#define LUX_TO_PPDF_CONST 1/54
+#define LUX_READING_PERIOD_S 5
+#define SEC_TO_US 1000000
 
-const char* ssid = "ViktoriPhone";
-const char* password =  "Helena90";
+void printLocalTime();
+
+static void timer_hourly_callback(void *arg);
+static void timer_luxReading_callback(void *arg);
+esp_timer_handle_t timer_hourly;
+esp_timer_handle_t timer_luxReading;
+
+struct tm timeinfo;
+
+const char* ssid = "Thomas";
+const char* password =  "internet";
  
 const uint16_t port = 5013;
 const char * host = "172.20.10.2";
@@ -15,6 +32,10 @@ const char * host = "172.20.10.2";
 const char* ntpServer = "pool.ntp.org";
 const long  gmtOffset_sec = 0;
 const int   daylightOffset_sec = 3600;
+
+double dli_reached = 0;
+double dli_goal = 15.0;
+
 
 // Set BATTERY_CAPACITY to the design capacity of your battery.
 const unsigned int BATTERY_CAPACITY = 8000; // e.g. 850mAh battery
@@ -33,6 +54,55 @@ void configureWiFi(){
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
  
 }
+void setupTimers(){
+  // setup Hourly Timer
+  esp_timer_create_args_t hourlyTimer_args;
+  hourlyTimer_args.callback = &timer_hourly_callback;
+  hourlyTimer_args.name = "hourlyTimer";
+
+  //Setup Light Reading Timer
+  esp_timer_create_args_t luxReadingTimer_args;
+  luxReadingTimer_args.callback = &timer_luxReading_callback;
+  luxReadingTimer_args.name = "luxReadingTimer";
+
+  
+  ESP_ERROR_CHECK(esp_timer_create(&hourlyTimer_args, &timer_hourly));
+  ESP_ERROR_CHECK(esp_timer_create(&luxReadingTimer_args,&timer_luxReading));
+
+  ESP_ERROR_CHECK(esp_timer_start_periodic(timer_luxReading,LUX_READING_PERIOD_S*SEC_TO_US));
+
+  // Ska nog inte startas här?
+  // ESP_ERROR_CHECK(esp_timer_start_once(timer_hourly, 3000000 ));
+}
+
+static void timer_hourly_callback(void *arg)
+{
+    printLocalTime();
+    Serial.println("timer");
+    ESP_ERROR_CHECK(esp_timer_start_once(timer_hourly, 3000000 ));
+    
+}
+static void timer_luxReading_callback(void *arg){
+  /* TODO läs värde
+          lägg till total
+          kolla om dagens uppnåt (isf stäng av lampa och sätt av)
+          */
+  getLocalTime(&timeinfo);
+  Serial.print(&timeinfo,"%H:%M:%S ");    
+  uint16_t reading = readLuxVisible();
+  double ppfd = readLuxVisible()*LUX_TO_PPDF_CONST;
+  dli_reached += ( ppfd * 0.000001 * LUX_READING_PERIOD_S );
+  
+
+  Serial.println(reading);      
+
+  if(dli_reached > dli_reached){
+
+  }
+}
+
+
+
 
 void setupBQ27441(void)
 {
@@ -112,8 +182,10 @@ void setup()
    pinMode(13, OUTPUT);
   digitalWrite(13,HIGH);
   delay(5000);
+  initLuxSensor();
   //setupBQ27441();
   configureWiFi();
+  setupTimers();
 
 }
 void turnOffCharge(){
@@ -121,8 +193,7 @@ void turnOffCharge(){
 
 }
 void printLocalTime(){
-
-  struct tm timeinfo;
+  
   if(!getLocalTime(&timeinfo)){
     Serial.println("Failed to obtain time");
     return;
@@ -158,6 +229,6 @@ void loop()
 
    //printBatteryStats();
 
-   delay(1000);
+   delay(5000);
 }
 
