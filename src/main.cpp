@@ -1,21 +1,32 @@
 
 #include <SparkFunBQ27441.h>
 #include <Wire.h>
+#include <WiFi.h>
+
 #define SDA_2 33
 #define SCL_2 32
 
+const char* ssid = "ViktoriPhone";
+const char* password =  "Helena90";
+ 
+const uint16_t port = 5013;
+const char * host = "172.20.10.2";
+
+
 // Set BATTERY_CAPACITY to the design capacity of your battery.
-const unsigned int BATTERY_CAPACITY = 80000; // e.g. 850mAh battery
+const unsigned int BATTERY_CAPACITY = 8000; // e.g. 850mAh battery
 
 BQ27441 lipo_1; 
 BQ27441 lipo_2; 
+unsigned int soc2;
+
 
 
 void setupBQ27441(void)
 {
   // Use lipo.begin() to initialize the BQ27441-G1A and confirm that it's
   // connected and communicating.
- 
+ /*
   Wire1.begin(SDA_2,SCL_2);
   
   if (!lipo_1.begin(&Wire1))
@@ -27,6 +38,8 @@ void setupBQ27441(void)
   }
   Serial.println("Connected to first BQ27441!");
   
+  */
+
   Wire.begin();
   
   if (!lipo_2.begin(&Wire))
@@ -40,15 +53,19 @@ void setupBQ27441(void)
   
   // Uset lipo.setCapacity(BATTERY_CAPACITY) to set the design capacity
   // of your battery.
-  lipo_1.setCapacity(BATTERY_CAPACITY);
+  //lipo_1.setCapacity(BATTERY_CAPACITY);
   lipo_2.setCapacity(BATTERY_CAPACITY);
+  
 }
 
 void printBatteryStats()
 {
   // Read battery stats from the BQ27441-G1A
-  unsigned int soc = lipo_1.soc();  // Read state-of-charge (%)
-  unsigned int soc2 = lipo_2.soc();  // Read state-of-charge (%)
+  //unsigned int soc = lipo_1.soc();  // Read state-of-charge (%)
+   soc2 = lipo_2.soc();  // Read state-of-charge (%)
+   int current = lipo_2.current(AVG); // Read average current (mA)
+   unsigned int fullCapacity = lipo_2.capacity(FULL); // Read full capacity (mAh)
+  unsigned int capacity = lipo_2.capacity(REMAIN); // Read remaining capacity (mAh)
   /*
   unsigned int volts = lipo.voltage(); // Read battery voltage (mV)
   int current = lipo.current(AVG); // Read average current (mA)
@@ -59,11 +76,15 @@ void printBatteryStats()
   */
 
   // Now print out those values:
-  String toPrint = "First Battery " + String(soc) + "% | ";
-   toPrint += "Second battery " + String(soc2) + " % | ";
-  /*
+  String toPrint = "First Battery " + String(soc2) + "% | ";
+ //  toPrint += "Second battery " + String(soc2) + " % | ";
+   toPrint += String(current) + " mA | ";
+   toPrint += String(capacity) + " / ";
+  toPrint += String(fullCapacity) + " mAh | ";
+
+ /*
   toPrint += String(volts) + " mV | ";
-  toPrint += String(current) + " mA | ";
+ 
   toPrint += String(capacity) + " / ";
   toPrint += String(fullCapacity) + " mAh | ";
   toPrint += String(power) + " mW | ";
@@ -80,6 +101,12 @@ void setup()
   digitalWrite(13,HIGH);
   delay(5000);
   setupBQ27441();
+
+   WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.println("...");
+  }
  
 
 
@@ -91,11 +118,32 @@ void turnOffCharge(){
 }
 void loop() 
 {
-  
-  for(int i=0; i<10; i++){
-  printBatteryStats();
-  delay(1000);
-  }
-  turnOffCharge();
+   WiFiClient client;
+     
+    if (!client.connect(host, port)) {  
+ 
+        Serial.println("Connection to host failed");
+ 
+        delay(1000);
+        return;
+    }
+
+    String line = client.readString();
+
+
+    if(soc2 == 99 ){
+        digitalWrite(13,LOW);
+    }
+
+  /*
+    if (line.equals("Toggle"))
+   {
+    turnOffCharge();
+   }
+   */
+
+   printBatteryStats();
+
+   delay(10000);
 }
 
