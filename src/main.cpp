@@ -6,8 +6,7 @@
 #include <esp_task_wdt.h>
 #include "Arduino.h"
 #include "LuxSensor.h"
-
-
+#include "AdaptiveLightClient.h"
 
 #define SDA_2 33
 #define SCL_2 32
@@ -25,20 +24,8 @@ esp_timer_handle_t timer_hourly;
 esp_timer_handle_t timer_luxReading;
 
 struct tm timeinfo;
-
-const char* ssid = "Thomas";
-const char* password =  "internet";
- 
-const uint16_t port = 5013;
-const char * host = "172.20.10.2";
-
-const char* ntpServer = "pool.ntp.org";
-const long  gmtOffset_sec = 0;
-const int   daylightOffset_sec = 3600;
-
 double dli_reached = 0;
 double dli_goal = 15.0;
-
 
 // Set BATTERY_CAPACITY to the design capacity of your battery.
 const unsigned int BATTERY_CAPACITY = 8000; // e.g. 850mAh battery
@@ -47,17 +34,6 @@ BQ27441 lipo_1;
 BQ27441 lipo_2; 
 unsigned int soc2;
 
-
-void configureWiFi(){
-    WiFi.begin(ssid, password);
-    while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.println("...");
-  }
-
-  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
- 
-}
 void setupTimers(){
   // setup Hourly Timer
   esp_timer_create_args_t hourlyTimer_args;
@@ -149,7 +125,7 @@ void printBatteryStats()
   //unsigned int soc = lipo_1.soc();  // Read state-of-charge (%)
    soc2 = lipo_2.soc();  // Read state-of-charge (%)
    int current = lipo_2.current(AVG); // Read average current (mA)
-   unsigned int fullCapacity = lipo_2.capacity(FULL); // Read full capacity (mAh)
+  unsigned int fullCapacity = lipo_2.capacity(FULL); // Read full capacity (mAh)
   unsigned int capacity = lipo_2.capacity(REMAIN); // Read remaining capacity (mAh)
   /*
   unsigned int volts = lipo.voltage(); // Read battery voltage (mV)
@@ -194,8 +170,6 @@ void setup()
   configureWiFi();
   setupTimers();
 
-
-
 }
 void turnOffCharge(){
   digitalWrite(13,!digitalRead(13));
@@ -214,28 +188,9 @@ void loop()
 {
 
   printLocalTime();
-  /*
-   WiFiClient client;
-     
-    if (!client.connect(host, port)) {  
- 
-        Serial.println("Connection to host failed");
- 
-        delay(1000);
-        return;
-    }
-
-    String line = client.readString();
-
-*/
-
-  /*
-    if (line.equals("Toggle"))
-   {
-    turnOffCharge();
-   }
-   */
-
+  
+  javaServerRequest();
+  
    //printBatteryStats();
 
    delay(5000);
