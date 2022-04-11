@@ -20,6 +20,7 @@ void printLocalTime();
 
 static void timer_hourly_callback(void *arg);
 static void timer_luxReading_callback(void *arg);
+void printBatteryStats();
 esp_timer_handle_t timer_hourly;
 esp_timer_handle_t timer_luxReading;
 
@@ -75,13 +76,13 @@ void setupTimers(){
   ESP_ERROR_CHECK(esp_timer_start_periodic(timer_luxReading,LUX_READING_PERIOD_S*SEC_TO_US));
 
   // Ska nog inte startas här?
-  // ESP_ERROR_CHECK(esp_timer_start_once(timer_hourly, 3000000 ));
+   ESP_ERROR_CHECK(esp_timer_start_once(timer_hourly, 3000000 ));
 }
 
 static void timer_hourly_callback(void *arg)
 {
     printLocalTime();
-    Serial.println("timer");
+    printBatteryStats();
     ESP_ERROR_CHECK(esp_timer_start_once(timer_hourly, 3000000 ));
     
 }
@@ -97,12 +98,10 @@ static void timer_luxReading_callback(void *arg){
   dli_reached += ( ppfd * 0.000001 * LUX_READING_PERIOD_S );
   
 
-  Serial.println(reading);  
-  Serial.println(dli_bidrag,12);    
+  Serial.println(reading);     
 
-  if(dli_bidrag > dli_reached){
 
-  }
+  
 }
 
 
@@ -112,10 +111,10 @@ void setupBQ27441(void)
 {
   // Use lipo.begin() to initialize the BQ27441-G1A and confirm that it's
   // connected and communicating.
- /*
+/*
   Wire1.begin(SDA_2,SCL_2);
   
-  if (!lipo_1.begin(&Wire1))
+  if(!lipo_1.begin(&Wire1))
   {
     Serial.println("Error: Unable to communicate with BQ27441.");
     Serial.println("  Check wiring and try again.");
@@ -180,14 +179,18 @@ void printBatteryStats()
   Serial.println(toPrint);
 }
 
+int getBatteryLevel(){
+
+}
+
 void setup()
 {
   Serial.begin(115200);
    pinMode(13, OUTPUT);
   digitalWrite(13,HIGH);
   delay(5000);
-  initLuxSensor();
-  //setupBQ27441();
+  // initLuxSensor();
+  setupBQ27441();
   configureWiFi();
   setupTimers();
 
