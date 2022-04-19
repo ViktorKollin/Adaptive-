@@ -26,19 +26,21 @@ void chargeOff();
 void requestHourlyPlan();
 void idle();
 void setupTimers();
+void setupBQ27441(void);
+void ledTurnOff();
 esp_timer_handle_t timer_hourly;
 esp_timer_handle_t timer_luxReading;
 
 struct tm timeinfo;
-double dli_reached = 0;
-double dli_goal = 15.0;
+double dli_reached = 5;
+double dli_goal = 12.0;
 boolean LED_On = false;
 
 String ans = "init";
 
 const unsigned int BATTERY_CAPACITY = 8000; 
 
-BQ27441 lipo;  
+//BQ27441 lipo;  
 unsigned int soc2;
 void setup()
 {
@@ -48,7 +50,7 @@ void setup()
   digitalWrite(13,HIGH);
   delay(5000);
   initLuxSensor();
-  setupBQ27441();
+  //setupBQ27441();
   configureWiFi();
   setupTimers();
   func_Pointer = idle;
@@ -72,7 +74,10 @@ void setupTimers(){
    //ESP_ERROR_CHECK(esp_timer_start_periodic(timer_luxReading,LUX_READING_PERIOD_S*SEC_TO_US));
 
   // Ska nog inte startas här?
-   ESP_ERROR_CHECK(esp_timer_start_once(timer_hourly, 3000000 ));
+  getLocalTime(&timeinfo);
+  int timeToClosestHour_us = (60 - timeinfo.tm_min)*60*1000000;
+
+   ESP_ERROR_CHECK(esp_timer_start_once(timer_hourly, timeToClosestHour_us ));
 }
 
 static void timer_hourly_callback(void *arg)
@@ -170,14 +175,18 @@ void printLocalTime(){
     return;
   }
   Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
+  
 }
 
 void requestHourlyPlan(){
+  getLocalTime(&timeinfo);
   String msg = String(dli_reached)+"_";
-  msg += String(lipo.soc());
-  javaServerRequest(0,msg);
-  delay(1000);
-  ans = javaServerRequest(1,"ne");
+  //msg += String(lipo.soc());
+  msg+= "50_";
+  msg += String(timeinfo.tm_hour);
+  javaServerRequest(1,msg);
+  delay(100);
+  ans = javaServerRequest(2,"ne");
   Serial.println(ans);
   func_Pointer = idle;
   
@@ -214,10 +223,11 @@ Serial.println("idle");
 void loop() 
 {
 
-  
+  requestHourlyPlan();
   func_Pointer();
+  printLocalTime();
   //Serial.println(ans);
 
-   delay(1000);
+   delay(3000);
 }
 
