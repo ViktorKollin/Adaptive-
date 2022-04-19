@@ -3,7 +3,8 @@
 
 
 void configureWiFi();
-String javaServerRequest(int i, String msg);
+String javaServerRequest(int i,String msg);
+
 
 /* Whac-a-mole
 void connectWifi();
