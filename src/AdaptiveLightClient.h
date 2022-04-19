@@ -3,7 +3,7 @@
 
 
 void configureWiFi();
-void javaServerRequest();
+String javaServerRequest(int i,String msg);
 
 
 #endif

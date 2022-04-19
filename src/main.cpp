@@ -25,6 +25,7 @@ esp_timer_handle_t timer_luxReading;
 struct tm timeinfo;
 double dli_reached = 0;
 double dli_goal = 15.0;
+String message ="";
 
 // Set BATTERY_CAPACITY to the design capacity of your battery.
 const unsigned int BATTERY_CAPACITY = 8000; // e.g. 850mAh battery
@@ -51,7 +52,7 @@ void setupTimers(){
   ESP_ERROR_CHECK(esp_timer_start_periodic(timer_luxReading,LUX_READING_PERIOD_S*SEC_TO_US));
 
   // Ska nog inte startas här?
-  // ESP_ERROR_CHECK(esp_timer_start_once(timer_hourly, 3000000 ));
+   ESP_ERROR_CHECK(esp_timer_start_once(timer_hourly, 3000000 ));
 }
 
 static void timer_hourly_callback(void *arg)
@@ -66,6 +67,7 @@ static void timer_luxReading_callback(void *arg){
           lägg till total
           kolla om dagens uppnåt (isf stäng av lampa och sätt av)
           */
+         /*
   getLocalTime(&timeinfo);
   Serial.print(&timeinfo,"%H:%M:%S ");    
   uint16_t reading = readLuxVisible();
@@ -78,6 +80,7 @@ static void timer_luxReading_callback(void *arg){
   if(dli_reached > dli_reached){
 
   }
+  */
 }
 
 
@@ -161,7 +164,7 @@ void setup()
    pinMode(13, OUTPUT);
   digitalWrite(13,HIGH);
   delay(5000);
-  initLuxSensor();
+  //initLuxSensor();
   //setupBQ27441();
   configureWiFi();
   setupTimers();
@@ -180,13 +183,21 @@ void printLocalTime(){
   Serial.println(&timeinfo, "%A, %B %d %Y %H:%M:%S");
 }
 
+
 void loop() 
 {
 
   printLocalTime();
   
-  javaServerRequest();
-  
+  message += "1";
+
+  String mess = javaServerRequest(1,message);
+  Serial.println(mess);
+
+  mess = javaServerRequest(2,message);
+  Serial.println(mess);
+
+
    //printBatteryStats();
 
    delay(5000);
