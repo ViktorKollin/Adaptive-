@@ -14,6 +14,8 @@
 #define LUX_READING_PERIOD_S 5
 #define SEC_TO_US 1000000
 #define PPFD_LED 100
+#define TIME_LED_ON 05
+#define TIME_LED_OFF 21
 
 void (*func_Pointer)();
 
@@ -28,6 +30,14 @@ void idle();
 void setupTimers();
 void setupBQ27441(void);
 void ledTurnOff();
+void ledTurnOn();
+void processPlan(String msg);
+void takeLuxReading();
+double ppfdToDli(double ppfd);
+double luxToPpfd(uint16_t lux);
+void registerAndCheckDli(double dli_contribution);
+void checkAndSwitchLed();
+
 esp_timer_handle_t timer_hourly;
 esp_timer_handle_t timer_luxReading;
 
@@ -35,12 +45,13 @@ struct tm timeinfo;
 double dli_reached = 5;
 double dli_goal = 12.0;
 boolean LED_On = false;
+int previousHour = 0;
 
 String ans = "init";
 
 const unsigned int BATTERY_CAPACITY = 8000; 
 
-//BQ27441 lipo;  
+BQ27441 lipo_1;  
 unsigned int soc2;
 void setup()
 {
@@ -50,7 +61,7 @@ void setup()
   digitalWrite(13,HIGH);
   delay(5000);
   initLuxSensor();
-  //setupBQ27441();
+  setupBQ27441();
   configureWiFi();
   setupTimers();
   func_Pointer = idle;
@@ -71,7 +82,7 @@ void setupTimers(){
   ESP_ERROR_CHECK(esp_timer_create(&hourlyTimer_args, &timer_hourly));
   ESP_ERROR_CHECK(esp_timer_create(&luxReadingTimer_args,&timer_luxReading));
 
-   //ESP_ERROR_CHECK(esp_timer_start_periodic(timer_luxReading,LUX_READING_PERIOD_S*SEC_TO_US));
+   ESP_ERROR_CHECK(esp_timer_start_periodic(timer_luxReading,LUX_READING_PERIOD_S*SEC_TO_US));
 
   // Ska nog inte startas här?
   getLocalTime(&timeinfo);
@@ -84,35 +95,20 @@ static void timer_hourly_callback(void *arg)
 {   
     func_Pointer = requestHourlyPlan;
     
-    ESP_ERROR_CHECK(esp_timer_start_once(timer_hourly, 5000000 ));
+    ESP_ERROR_CHECK(esp_timer_start_once(timer_hourly, 3600000000 ));
     
 }
 static void timer_luxReading_callback(void *arg){
-  /* TODO läs värde
-          lägg till total
-          kolla om dagens uppnåt (isf stäng av lampa och sätt av)
-          
-  getLocalTime(&timeinfo);
-  Serial.print(&timeinfo,"%H:%M:%S ");   
-  */ 
-  uint16_t reading = readLuxVisible();
-  double ppfd = readLuxVisible()*LUX_TO_PPDF_CONST;
-  if(LED_On){
-    ppfd += PPFD_LED;
-  }
-  dli_reached += ( ppfd * 0.000001 * LUX_READING_PERIOD_S );
-  if (LED_On && dli_reached >= dli_goal){
-    ledTurnOff();
-  }
   
-  Serial.println(reading);     
+  func_Pointer = takeLuxReading;
+    
 }
 
 void setupBQ27441(void)
 {
   Wire.begin();
   
-  if (!lipo.begin(&Wire))
+  if (!lipo_1.begin(&Wire))
   {
     Serial.println("Error: Unable to communicate with BQ27441.");
     Serial.println("  Check wiring and try again.");
@@ -124,7 +120,7 @@ void setupBQ27441(void)
   // Uset lipo.setCapacity(BATTERY_CAPACITY) to set the design capacity
   // of your battery.
   //lipo_1.setCapacity(BATTERY_CAPACITY);
-  lipo.setCapacity(BATTERY_CAPACITY);
+  lipo_1.setCapacity(BATTERY_CAPACITY);
   
 }
 
@@ -132,10 +128,10 @@ void printBatteryStats()
 {
   // Read battery stats from the BQ27441-G1A
   //unsigned int soc = lipo_1.soc();  // Read state-of-charge (%)
-  soc2 = lipo.soc();  // Read state-of-charge (%)
-  int current = lipo.current(AVG); // Read average current (mA)
-  unsigned int fullCapacity = lipo.capacity(FULL); // Read full capacity (mAh)
-  unsigned int capacity = lipo.capacity(REMAIN); // Read remaining capacity (mAh)
+  soc2 = lipo_1.soc();  // Read state-of-charge (%)
+  int current = lipo_1.current(AVG); // Read average current (mA)
+  unsigned int fullCapacity = lipo_1.capacity(FULL); // Read full capacity (mAh)
+  unsigned int capacity = lipo_1.capacity(REMAIN); // Read remaining capacity (mAh)
   /*
   unsigned int volts = lipo.voltage(); // Read battery voltage (mV)
   int current = lipo.current(AVG); // Read average current (mA)
@@ -181,23 +177,93 @@ void printLocalTime(){
 void requestHourlyPlan(){
   getLocalTime(&timeinfo);
   String msg = String(dli_reached)+"_";
-  //msg += String(lipo.soc());
-  msg+= "50_";
-  msg += String(timeinfo.tm_hour);
+  //msg += String(lipo_1.soc());
+  msg+= "15_16";
+  //msg += String(timeinfo.tm_hour);
   javaServerRequest(1,msg);
   delay(100);
   ans = javaServerRequest(2,"ne");
   Serial.println(ans);
+  processPlan(ans);
   func_Pointer = idle;
   
-  //Serial.println(ans);
-  /*if(ans.equals("Charge")){
-   chargeOn();
-  }else if(ans.equals("No")){
+}
+void processPlan(String msg){
+
+  String charge_str = msg.substring(0,1);
+  double DLI_goal_new = msg.substring(2).toDouble();
+
+  if(charge_str.equals("1")){
+    chargeOn();
+  } else if(charge_str.equals("0")){
     chargeOff();
-  }*/
+  } else {
+    // ToDo här skulle man kunna ha någon semi-smart lösning så att den inte dör?
+    Serial.println("Error in charge message from Server");
+  }
+
+  dli_goal = DLI_goal_new;
+
+  
+
+
 }
 
+void takeLuxReading(){
+
+ uint16_t reading = readLuxVisible();
+  Serial.println("reading: "+String(reading));
+ registerAndCheckDli( ppfdToDli( luxToPpfd( reading ) ) );
+
+ func_Pointer = checkAndSwitchLed;
+  
+}
+
+double luxToPpfd(uint16_t lux){
+
+  return lux*LUX_TO_PPDF_CONST;
+}
+double ppfdToDli(double ppfd){
+
+  return ppfd * 0.000001 * LUX_READING_PERIOD_S;
+}
+boolean isDliReached(){
+  return dli_reached >= dli_goal;
+}
+void checkAndSwitchLed(){
+
+  getLocalTime(&timeinfo);
+  int hourNow = timeinfo.tm_hour;
+
+  // detects new day and resets dli_reached
+  if(hourNow < previousHour){
+    dli_reached = 0;
+  }
+  previousHour = hourNow;
+
+  if(hourNow >= TIME_LED_ON && hourNow < TIME_LED_OFF && !isDliReached()){
+    ledTurnOn();
+  }
+  func_Pointer = idle;
+}
+void registerAndCheckDli(double dli_contribution){
+
+Serial.print("Added dli: ");
+Serial.println(dli_contribution,7);
+  dli_reached += dli_contribution;
+
+  if(LED_On){
+
+    dli_reached += luxToPpfd(PPFD_LED);
+
+    if( isDliReached() ){
+
+      ledTurnOff();
+    }
+  }
+
+  
+}
 void chargeOn(){
   Serial.println("ChargeOn");
   digitalWrite(CHARGE_RELAY_PIN,LOW);
@@ -223,11 +289,11 @@ Serial.println("idle");
 void loop() 
 {
 
-  requestHourlyPlan();
+ 
   func_Pointer();
   printLocalTime();
   //Serial.println(ans);
 
-   delay(3000);
+   delay(2000);
 }
 
